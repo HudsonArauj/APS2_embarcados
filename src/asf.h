@@ -89,6 +89,9 @@
 // From module: Interrupt management - SAM implementation
 #include <interrupt.h>
 
+// From module: MATRIX - Bus Matrix
+#include <matrix.h>
+
 // From module: MPU - Memory Protect Unit
 #include <mpu.h>
 
@@ -104,6 +107,9 @@
 
 // From module: RTC - Real Time Clock
 #include <rtc.h>
+
+// From module: RTT - Real Time Timer
+#include <rtt.h>
 
 // From module: SAM FPU driver
 #include <fpu.h>

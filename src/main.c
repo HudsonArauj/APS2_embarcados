@@ -11,6 +11,23 @@
 #include "logo_bike.h"
 #include "icon_vel.h"
 
+// Sensor magnético
+#define SENSOR_MAG_PIO      PIOA
+#define SENSOR_MAG_PIO_ID   ID_PIOA
+#define SENSOR_MAG_IDX      19
+#define SENSOR_MAG_IDX_MASK (1 << SENSOR_MAG_IDX)
+
+//PAUSE - CAM - P0
+#define CAM_1_PIO			PIOA
+#define CAM_1_PIO_ID		ID_PIOA
+#define CAM_1_PIO_IDX		3
+#define CAM_1_PIO_IDX_MASK (1u << CAM_1_PIO_IDX)
+
+#define SERVO_PIO    PIOA
+#define SERVO_PIO_ID ID_PIOA
+#define SERVO_PIO_IDX 4
+#define SERVO_IDX_MASK (1 << SERVO_PIO_IDX)
+
 lv_obj_t * labelLogo;
 lv_obj_t * labelClock;
 lv_obj_t * labelVelocidade;
@@ -22,8 +39,6 @@ lv_obj_t * labelUniTemp;
 lv_obj_t * Dist;
 lv_obj_t * Vel;
 lv_obj_t * Temp;
-
-
 
 
 
@@ -75,6 +90,9 @@ LV_FONT_DECLARE(dseg20);
 #define TASK_LCD_STACK_SIZE                (1024*6/sizeof(portSTACK_TYPE))
 #define TASK_LCD_STACK_PRIORITY            (tskIDLE_PRIORITY)
 
+#define TASK_PULSE_STACK_SIZE (4096 / sizeof(portSTACK_TYPE))
+#define TASK_PULSE_STACK_PRIORITY (tskIDLE_PRIORITY)
+
 extern void vApplicationStackOverflowHook(xTaskHandle *pxTask,  signed char *pcTaskName);
 extern void vApplicationIdleHook(void);
 extern void vApplicationTickHook(void);
@@ -85,6 +103,7 @@ extern void vApplicationStackOverflowHook(xTaskHandle *pxTask, signed char *pcTa
 	printf("stack overflow %x %s\r\n", pxTask, (portCHAR *)pcTaskName);
 	for (;;) {	}
 }
+static void RTT_init(float freqPrescale, uint32_t IrqNPulses, uint32_t rttIRQSource);
 
 extern void vApplicationIdleHook(void) { }
 
@@ -95,7 +114,59 @@ extern void vApplicationMallocFailedHook(void) {
 }
 void RTC_init(Rtc *rtc, uint32_t id_rtc, calendar t, uint32_t irq_type);
 
+SemaphoreHandle_t xSemaphorePulse;
+SemaphoreHandle_t xSemaphoreAlerta;
 
+
+/************************************************************************/
+/* Callbacks                                                            */
+/************************************************************************/
+
+void pulse_callback(void)
+{
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	xSemaphoreGiveFromISR(xSemaphorePulse, &xHigherPriorityTaskWoken);
+}
+
+void cam_callback(void)
+{
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	xSemaphoreGiveFromISR(xSemaphoreAlerta, &xHigherPriorityTaskWoken);
+}
+
+void servo0graus()              //Posiciona o servo em 0 graus
+{
+
+	pio_set(SERVO_PIO, SERVO_IDX_MASK);  //pulso do servo
+	delay_us(600);     //1.5ms
+	pio_clear(SERVO_PIO, SERVO_IDX_MASK);   //completa periodo do servo
+	for(int i=0;i<32;i++)delay_us(600);
+	// 20ms = 20000us
+	// 20000us - 600us = 19400us
+	// 19400/600 = ~~32
+} //end servo0graus
+
+void servo90graus()             //Posiciona o servo em 90 graus
+{
+	pio_set(SERVO_PIO, SERVO_IDX_MASK);  //pulso do servo
+	delay_us(1500);     //1.5ms
+	pio_clear(SERVO_PIO, SERVO_IDX_MASK);   //completa periodo do servo
+	for(int i=0;i<12;i++)delay_us(1500);
+	// 20ms = 20000us
+	// 20000us - 1500us = 18500us
+	// 18500/1500 = ~~12
+} //end servo0graus
+
+void servo180graus()             //Posiciona o servo em 90 graus
+{
+	pio_set(SERVO_PIO, SERVO_IDX_MASK);  //pulso do servo
+	delay_us(2400);     //1.5ms
+	pio_clear(SERVO_PIO, SERVO_IDX_MASK);   //completa periodo do servo
+	for(int i=0;i<7;i++)delay_us(2400);
+	// 20ms = 20000us
+	// 20000us - 1500us = 18500us
+	// 18500/1500 = ~~12
+} //end servo0graus
 
 /************************************************************************/
 /* RTC                                                                 */
@@ -498,6 +569,52 @@ static void task_lcd(void *pvParameters) {
 	}
 }
 
+
+
+
+int volatile flag_rtt = 0;
+static void task_pulses(void *pvParameters) {
+	
+	
+	flag_rtt = 1; // força flag = 1 para inicializar alarme.
+	float deltaT = 2.5;
+	float vm = 0;
+	float vm_ = 0;
+	float am = 0;
+	float N = 0;
+	float R = 0.508/2;
+	float K = 100;
+	int choice = 0;
+	
+	for (;;)  {
+		if(flag_rtt) {
+			printf("N = %d\n", (int) N);
+			vm = ((2.0 * 3.1415926535 * N * R * K) / deltaT);
+			am = (vm - vm_) / deltaT;
+			printf("vm = %d cm/s\n", (int) vm);
+			printf("am = %d cm/s^2\n", (int) am);
+			
+			RTT_init(10, 25, RTT_MR_ALMIEN);  // inicializa rtt com alarme
+			flag_rtt = 0;
+			N = 0;
+			vm_ = vm;
+			choice = (choice + 1) % 3;
+		}
+		
+		if(xSemaphoreTake(xSemaphorePulse, 1)){
+			//printf("Pulso! \n");
+			N++;
+		}
+		if(xSemaphoreTake(xSemaphoreAlerta, 1)){
+			printf("Cam! \n");
+			//N++;
+		}
+		
+		
+		
+	}
+}
+
 static void task_rtc(void *pvParameters){
 	calendar rtc_initial = {2023, 4, 19, 12, 15, 0 ,0};
 
@@ -618,14 +735,104 @@ void configure_lvgl(void) {
 	lv_indev_t * my_indev = lv_indev_drv_register(&indev_drv);
 }
 
+static void RTT_init(float freqPrescale, uint32_t IrqNPulses, uint32_t rttIRQSource) {
+
+	uint16_t pllPreScale = (int) (((float) 32768) / freqPrescale);
+	
+	rtt_sel_source(RTT, false);
+	rtt_init(RTT, pllPreScale);
+	
+	if (rttIRQSource & RTT_MR_ALMIEN) {
+		uint32_t ul_previous_time;
+		ul_previous_time = rtt_read_timer_value(RTT);
+		while (ul_previous_time == rtt_read_timer_value(RTT));
+		rtt_write_alarm_time(RTT, IrqNPulses+ul_previous_time);
+	}
+
+	/* config NVIC */
+	NVIC_DisableIRQ(RTT_IRQn);
+	NVIC_ClearPendingIRQ(RTT_IRQn);
+	NVIC_SetPriority(RTT_IRQn, 4);
+	NVIC_EnableIRQ(RTT_IRQn);
+
+	/* Enable RTT interrupt */
+	if (rttIRQSource & (RTT_MR_RTTINCIEN | RTT_MR_ALMIEN))
+	rtt_enable_interrupt(RTT, rttIRQSource);
+	else
+	rtt_disable_interrupt(RTT, RTT_MR_RTTINCIEN | RTT_MR_ALMIEN);
+	
+}
+
+
+void RTT_Handler(void) {
+	uint32_t ul_status;
+	ul_status = rtt_get_status(RTT);
+
+	/* IRQ due to Alarm */
+	if ((ul_status & RTT_SR_ALMS) == RTT_SR_ALMS) {
+		flag_rtt = 1;
+	}
+}
+
+static float get_time_rtt(){
+	uint ul_previous_time = rtt_read_timer_value(RTT);
+}
+
+void init_sensores(void){
+	
+	pmc_enable_periph_clk(SENSOR_MAG_PIO_ID);
+	pio_configure(SENSOR_MAG_PIO, PIO_INPUT, SENSOR_MAG_IDX_MASK, PIO_PULLUP);
+	pio_handler_set(SENSOR_MAG_PIO,
+					SENSOR_MAG_PIO_ID,
+					SENSOR_MAG_IDX_MASK,
+					PIO_IT_FALL_EDGE,
+					pulse_callback);
+	// Ativa interrupção e limpa primeira IRQ gerada na ativacao
+	pio_enable_interrupt(SENSOR_MAG_PIO, SENSOR_MAG_IDX_MASK);
+	pio_get_interrupt_status(SENSOR_MAG_PIO);
+	
+	// Configura NVIC para receber interrupcoes do PIO do botao
+	// com prioridade 4 (quanto mais próximo de 0 maior)
+	NVIC_EnableIRQ(SENSOR_MAG_PIO_ID);
+	NVIC_SetPriority(SENSOR_MAG_PIO_ID, 4); // Prioridade 4
+	
+	
+	
+}
+
+void init_cam(){
+	pmc_enable_periph_clk(CAM_1_PIO_ID); // PAUSE
+	
+	pio_configure(CAM_1_PIO, PIO_INPUT, CAM_1_PIO_IDX_MASK, PIO_PULLUP);
+	pio_handler_set(CAM_1_PIO,
+					CAM_1_PIO_ID,
+					CAM_1_PIO_IDX_MASK,
+					PIO_IT_FALL_EDGE,
+					cam_callback);
+					
+	// Ativa interrup??o e limpa primeira IRQ gerada na ativacao
+	pio_enable_interrupt(CAM_1_PIO, CAM_1_PIO_IDX_MASK);
+	pio_get_interrupt_status(CAM_1_PIO);
+	
+	// Configura NVIC para receber interrupcoes do PIO do botao
+	// com prioridade 4 (quanto mais pr?ximo de 0 maior)
+	NVIC_EnableIRQ(CAM_1_PIO_ID);
+	NVIC_SetPriority(CAM_1_PIO_ID, 4); // Prioridade 4
+}
+
 /************************************************************************/
 /* main                                                                 */
 /************************************************************************/
 int main(void) {
 	/* board and sys init */
+	printf("oi");
 	board_init();
 	sysclk_init();
 	configure_console();
+	init_sensores();
+	init_cam();
+	pmc_enable_periph_clk(SERVO_PIO_ID);
+	pio_set_output(SERVO_PIO, SERVO_IDX_MASK, 0, 0, 0);
 
 	/* LCd, touch and lvgl init*/
 	configure_lcd();
@@ -644,9 +851,26 @@ int main(void) {
 		printf("Failed to create rtc task\r\n");
 	}
 	
+	/* Create task to control oled */
+	if (xTaskCreate(task_pulses, "pulses", TASK_PULSE_STACK_SIZE, NULL, TASK_PULSE_STACK_PRIORITY, NULL) != pdPASS) {
+		printf("Failed to create rtc task\r\n");
+	}
+	
+	
+	
 	/* Attempt to create a semaphore. */
 	xSemaphoreClock = xSemaphoreCreateBinary();
 	if (xSemaphoreClock == NULL)
+	printf("falha em criar o semaforo \n");
+	
+	/* Attempt to create a semaphore. */
+	xSemaphorePulse = xSemaphoreCreateBinary();
+	if (xSemaphorePulse == NULL)
+	printf("falha em criar o semaforo \n");
+	
+	/* Attempt to create a semaphore. */
+	xSemaphoreAlerta = xSemaphoreCreateBinary();
+	if (xSemaphoreAlerta == NULL)
 	printf("falha em criar o semaforo \n");
 	
 	/* Start the scheduler. */
