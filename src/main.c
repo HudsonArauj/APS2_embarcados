@@ -9,7 +9,7 @@
 #include "touch/touch.h"
 #include "conf_board.h"
 #include "logo_bike.h"
-#include "icon_vel.h"
+
 
 // Sensor magnético
 #define SENSOR_MAG_PIO      PIOA
@@ -23,6 +23,11 @@
 #define CAM_1_PIO_IDX		3
 #define CAM_1_PIO_IDX_MASK (1u << CAM_1_PIO_IDX)
 
+#define LED_PIO PIOC
+#define LED_PIO_ID ID_PIOC
+#define LED_PIO_IDX 8
+#define LED_IDX_MASK (1 << LED_PIO_IDX)
+
 #define SERVO_PIO    PIOA
 #define SERVO_PIO_ID ID_PIOA
 #define SERVO_PIO_IDX 4
@@ -31,6 +36,7 @@
 lv_obj_t * labelLogo;
 lv_obj_t * labelClock;
 lv_obj_t * labelVelocidade;
+lv_obj_t * labelVelocidadeMedia;
 lv_obj_t * labelDistancia;
 lv_obj_t * labelTempoGasto;
 lv_obj_t * labelUniVel;
@@ -39,9 +45,12 @@ lv_obj_t * labelUniTemp;
 lv_obj_t * Dist;
 lv_obj_t * Vel;
 lv_obj_t * Temp;
-
-
-
+lv_obj_t * labelPause;
+lv_obj_t * labelGrav;
+int cronometro = 0;
+int deltaT_cron = 0;
+float d = 0;
+float R = 0.508/2;
 // Horario
 typedef struct  {
 	uint32_t year;
@@ -57,11 +66,12 @@ static lv_obj_t * tela1;
 static lv_obj_t * tela2;
 //Semaforo
 SemaphoreHandle_t xSemaphoreClock;
+SemaphoreHandle_t xSemaphoreMutex;
 
 /************************************************************************/
 /* LCD / LVGL                                                           */
 /************************************************************************/
-
+void pin_toggle(Pio *pio, uint32_t mask);
 
 #define LV_HOR_RES_MAX          (240)
 #define LV_VER_RES_MAX          (320)
@@ -78,7 +88,6 @@ lv_obj_t * labelPlay;
 LV_IMG_DECLARE(logo_bike);
 LV_FONT_DECLARE(dseg40);
 LV_FONT_DECLARE(dseg22);
-LV_FONT_DECLARE(dseg30);
 LV_FONT_DECLARE(dseg20);
 
 
@@ -251,13 +260,11 @@ static void handler_home(lv_event_t * e) {
 }
 
 
-volatile int play =0;
 static void handler_pause(lv_event_t * e) {
 	lv_event_code_t code = lv_event_get_code(e);
-	lv_obj_t * labelPause;
 
 	if(code == LV_EVENT_CLICKED) {
-		play = !play;
+		deltaT_cron = 1;
 		lv_obj_t *pause_ = lv_btn_create(lv_scr_act());
 		lv_obj_add_event_cb(pause_, handler_play, LV_EVENT_ALL, NULL);
 		//lv_obj_add_flag(pause_play, LV_OBJ_FLAG_CHECKABLE);
@@ -272,7 +279,23 @@ static void handler_pause(lv_event_t * e) {
 		lv_obj_set_style_text_color(labelPause, lv_color_white(), LV_STATE_DEFAULT); // Define a cor do texto como branco
 		lv_label_set_text(labelPause, LV_SYMBOL_PAUSE);
 		lv_obj_center(labelPause);
-		printf(" play : %d\n",play);
+		printf(" play : %d\n",deltaT_cron);
+		lv_obj_t *grav = lv_btn_create(tela1);
+		//lv_obj_add_event_cb(home, handler_home, LV_EVENT_ALL, NULL);
+		//lv_obj_add_flag(pause_play, LV_OBJ_FLAG_CHECKABLE);
+		lv_obj_align_to(grav, labelVelocidade, LV_ALIGN_LEFT_MID, -40, 0);
+		lv_obj_set_width(grav, 20);
+		lv_obj_set_height(grav, 20);
+		
+		lv_obj_set_style_bg_color(grav, lv_color_black(), LV_STATE_DEFAULT); // Define a cor de fundo como a cor do LCD
+		lv_obj_set_style_radius(grav, LV_RADIUS_CIRCLE, LV_STATE_DEFAULT); // Define o raio do canto como circular
+		
+		labelGrav = lv_label_create(grav);
+		lv_obj_set_style_text_color(labelGrav, lv_color_white(), LV_STATE_DEFAULT); // Define a cor do texto como branco
+		lv_label_set_text(labelGrav, LV_SYMBOL_SAVE);
+		lv_obj_center(labelGrav);
+		
+	
 	}
 	
 }
@@ -281,7 +304,7 @@ static void handler_play(lv_event_t * e) {
 	lv_obj_t * labelPause;
 
 	if(code == LV_EVENT_CLICKED) {
-		play = !play;
+		deltaT_cron = 0;
 		// pause/play
 		lv_obj_t *play = lv_btn_create(lv_scr_act());
 		lv_obj_add_event_cb(play, handler_pause, LV_EVENT_ALL, NULL);
@@ -297,6 +320,17 @@ static void handler_play(lv_event_t * e) {
 		lv_obj_set_style_text_color(labelPlay, lv_color_white(), LV_STATE_DEFAULT); // Define a cor do texto como branco
 		lv_label_set_text(labelPlay, LV_SYMBOL_PLAY);
 		lv_obj_center(labelPlay);
+		
+		
+		lv_obj_t *grav = lv_btn_create(tela1);
+		//lv_obj_add_event_cb(home, handler_home, LV_EVENT_ALL, NULL);
+		//lv_obj_add_flag(pause_play, LV_OBJ_FLAG_CHECKABLE);
+		lv_obj_align_to(grav, labelVelocidade, LV_ALIGN_LEFT_MID, -40, 0);
+		lv_obj_set_width(grav, 20);
+		lv_obj_set_height(grav, 20);
+		
+		lv_obj_set_style_bg_color(grav, lv_color_white(), LV_STATE_DEFAULT); // Define a cor de fundo como a cor do LCD
+		lv_obj_set_style_radius(grav, LV_RADIUS_CIRCLE, LV_STATE_DEFAULT); // Defi
 	}
 	
 }
@@ -307,6 +341,26 @@ static void handler_refresh(lv_event_t * e) {
 
 	if(code == LV_EVENT_CLICKED) {
 		refresh = 1;
+		cronometro = 0;
+		deltaT_cron = 0;
+		d = 0;
+		lv_obj_t *play = lv_btn_create(lv_scr_act());
+		lv_obj_add_event_cb(play, handler_pause, LV_EVENT_ALL, NULL);
+		//lv_obj_add_flag(pause_play, LV_OBJ_FLAG_CHECKABLE);
+		lv_obj_align_to(play, logoBike, LV_ALIGN_BOTTOM_MID, -10, 200);
+		lv_obj_set_width(play, 50);
+		lv_obj_set_height(play, 50);
+		
+		lv_obj_set_style_bg_color(play, lv_color_black(), LV_STATE_DEFAULT); // Define a cor de fundo como a cor do LCD
+		lv_obj_set_style_radius(play, LV_RADIUS_CIRCLE, LV_STATE_DEFAULT); // Define o raio do canto como circular
+		
+		labelPlay = lv_label_create(play);
+		lv_obj_set_style_text_color(labelPlay, lv_color_white(), LV_STATE_DEFAULT); // Define a cor do texto como branco
+		lv_label_set_text(labelPlay, LV_SYMBOL_PLAY);
+		lv_obj_center(labelPlay);
+		
+
+		
 	}
 	
 }
@@ -318,7 +372,7 @@ static void handler_raio(lv_event_t *e){
 		char buf[32];
 		lv_roller_get_selected_str(obj, buf, sizeof(buf));
 		printf("Selected month: %s\n", buf);
-		//RAIO = atoi(buf)*0.0253/2;
+		R = atoi(buf)*0.0254/2;
 	}
 }
 
@@ -328,6 +382,7 @@ void lv_ex_btn_1(void) {
 	lv_obj_t * labelRefresh;
 	lv_obj_t * labelHome;
 	lv_obj_t * labelSelect;
+	
 	
 	//Estiliza o botão
 	static lv_style_t style;
@@ -384,27 +439,29 @@ void lv_ex_btn_1(void) {
 	//Label velocidade
 	labelVelocidade = lv_label_create(lv_scr_act());
 	lv_obj_align_to(labelVelocidade, logoBike, LV_ALIGN_CENTER, -30, 100);
-	lv_obj_set_style_text_font(labelVelocidade, &dseg40, LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(labelVelocidade, &lv_font_montserrat_40, LV_STATE_DEFAULT);
 	lv_obj_set_style_text_color(labelVelocidade, lv_color_black(), LV_STATE_DEFAULT);
-	lv_label_set_text_fmt(labelVelocidade, "%02d", 10);
+	lv_label_set_text_fmt(labelVelocidade, "%.1f", 0);
 	
 	// Label unidade Velocidade
 	labelUniVel = lv_label_create(lv_scr_act());
 	lv_obj_align_to(labelUniVel, labelVelocidade, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, 0);
 	lv_obj_set_style_text_color(labelUniVel, lv_color_black(), LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(labelUniVel, &lv_font_montserrat_10, LV_STATE_DEFAULT);
+
 	lv_label_set_text_fmt(labelUniVel, "Km/h");
 
 	//Label Distancia
 	labelDistancia = lv_label_create(lv_scr_act());
 	lv_obj_align_to(labelDistancia, logoBike, LV_ALIGN_BOTTOM_LEFT, -20, 145);
-	lv_obj_set_style_text_font(labelDistancia, &dseg20, LV_STATE_DEFAULT);
-	lv_obj_set_style_text_color(labelDistancia, lv_color_black(), LV_STATE_DEFAULT);
-	lv_label_set_text_fmt(labelDistancia, "%02d", 30);
+	lv_obj_set_style_text_font(labelDistancia, &lv_font_montserrat_20, LV_STATE_DEFAULT);	lv_obj_set_style_text_color(labelDistancia, lv_color_black(), LV_STATE_DEFAULT);
+	lv_label_set_text_fmt(labelDistancia, "%.2f", 0.00);
 	
 	// Label unidade Distancia
 	labelUniDist = lv_label_create(lv_scr_act());
 	lv_obj_align_to(labelUniDist, labelDistancia, LV_ALIGN_OUT_RIGHT_BOTTOM, 0, 5);
 	lv_obj_set_style_text_color(labelUniDist, lv_color_black(), LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(labelUniDist, &lv_font_montserrat_10, LV_STATE_DEFAULT);
 	lv_label_set_text_fmt(labelUniDist, "Km");
 	
 	// Label unidade Distancia
@@ -419,7 +476,7 @@ void lv_ex_btn_1(void) {
 		
 	labelTempoGasto = lv_label_create(lv_scr_act());
 	lv_obj_align_to(labelTempoGasto, logoBike, LV_ALIGN_BOTTOM_RIGHT, -20, 145);
-	lv_obj_set_style_text_font(labelTempoGasto, &dseg20, LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(labelTempoGasto, &lv_font_montserrat_20, LV_STATE_DEFAULT);
 	lv_obj_set_style_text_color(labelTempoGasto, lv_color_black(), LV_STATE_DEFAULT);
 	lv_label_set_text_fmt(labelTempoGasto, "%02d:%02d", 0,0);
 	
@@ -439,28 +496,29 @@ void lv_ex_btn_1(void) {
 	
 	//Label velocidade media
 	
-	labelVelocidade = lv_label_create(lv_scr_act());
-	lv_obj_align_to(labelVelocidade, logoBike, LV_ALIGN_BOTTOM_MID, -20, 145);
-	lv_obj_set_style_text_font(labelVelocidade, &dseg20, LV_STATE_DEFAULT);
-	lv_obj_set_style_text_color(labelVelocidade, lv_color_black(), LV_STATE_DEFAULT);
-	lv_label_set_text_fmt(labelVelocidade, "%02d", 20);
+	labelVelocidadeMedia = lv_label_create(lv_scr_act());
+	lv_obj_align_to(labelVelocidadeMedia, logoBike, LV_ALIGN_BOTTOM_MID, -20, 145);
+	lv_obj_set_style_text_font(labelVelocidadeMedia, &lv_font_montserrat_20, LV_STATE_DEFAULT);
+	lv_obj_set_style_text_color(labelVelocidadeMedia, lv_color_black(), LV_STATE_DEFAULT);
+	lv_label_set_text_fmt(labelVelocidadeMedia, "%.1f", 0);
 	
 	// Label unidade velocidade
 	labelUniVel = lv_label_create(lv_scr_act());
-	lv_obj_align_to(labelUniVel, labelVelocidade, LV_ALIGN_OUT_RIGHT_BOTTOM, 0, 5);
+	lv_obj_align_to(labelUniVel, labelVelocidadeMedia, LV_ALIGN_OUT_RIGHT_BOTTOM, 0, 5);
+	lv_obj_set_style_text_font(labelUniVel, &lv_font_montserrat_10, LV_STATE_DEFAULT);
 	lv_obj_set_style_text_color(labelUniVel, lv_color_black(), LV_STATE_DEFAULT);
 	lv_label_set_text_fmt(labelUniVel, "Km/h");
 	
 	// Label Vel.
 	Vel = lv_label_create(lv_scr_act());
-	lv_obj_align_to(Vel, labelVelocidade, LV_ALIGN_OUT_TOP_MID, 0, 0);
+	lv_obj_align_to(Vel, labelVelocidadeMedia, LV_ALIGN_OUT_TOP_MID, 0, 0);
 	lv_obj_set_style_text_color(Vel, lv_color_black(), LV_STATE_DEFAULT);
 	lv_label_set_text_fmt(Vel, "VelMed.");
 	
 	//Icon vel
-	lv_obj_t * vel = lv_img_create(lv_scr_act());
-	lv_img_set_src(vel, &icon_vel);
-	lv_obj_align_to(vel,labelVelocidade, LV_ALIGN_BOTTOM_MID, 10, 30);
+// 	lv_obj_t * vel = lv_img_create(lv_scr_act());
+// 	lv_img_set_src(vel, &icon_vel);
+// 	lv_obj_align_to(vel,labelVelocidade, LV_ALIGN_BOTTOM_MID, 10, 30);
 	
 	// configuracao
 	lv_obj_t * config = lv_btn_create(lv_scr_act());
@@ -526,6 +584,12 @@ void lv_ex_btn_1(void) {
 	lv_label_set_text(labelHome, LV_SYMBOL_HOME);
 	lv_obj_center(labelHome);
 	
+	// GRAVANDO
+	//if(deltaT_cron){
+		
+	//}
+	
+	
 		
 	lv_obj_t *roller1 = lv_roller_create(tela2);
 	lv_roller_set_options(roller1,
@@ -563,8 +627,10 @@ static void task_lcd(void *pvParameters) {
 	lv_scr_load(tela1);
 	lv_ex_btn_1();
 	for (;;)  {
+		xSemaphoreGive(xSemaphoreMutex);
 		lv_tick_inc(50);
 		lv_task_handler();
+		xSemaphoreTake(xSemaphoreMutex, 0);
 		vTaskDelay(50);
 	}
 }
@@ -573,25 +639,52 @@ static void task_lcd(void *pvParameters) {
 
 
 int volatile flag_rtt = 0;
+volatile int n = 0;
 static void task_pulses(void *pvParameters) {
-	
 	
 	flag_rtt = 1; // força flag = 1 para inicializar alarme.
 	float deltaT = 2.5;
 	float vm = 0;
 	float vm_ = 0;
-	float am = 0;
+	int am = 0;
 	float N = 0;
-	float R = 0.508/2;
 	float K = 100;
 	int choice = 0;
+	float v_media = 0;
 	
 	for (;;)  {
 		if(flag_rtt) {
 			printf("N = %d\n", (int) N);
-			vm = ((2.0 * 3.1415926535 * N * R * K) / deltaT);
+			vm = (((2.0 * 3.1415926535 * N * R * K) / deltaT))*0.036;
 			am = (vm - vm_) / deltaT;
-			printf("vm = %d cm/s\n", (int) vm);
+			//vm = (int)vm;				
+			lv_label_set_text_fmt(labelVelocidade, "%.1f",vm);
+			if(deltaT_cron){
+				d +=  (2.0 * 3.1415926535 * N*R)/1000;
+				printf("dist : %.2f\n", d);
+				lv_label_set_text_fmt(labelDistancia, "%.2f",d);
+				
+ 				n++;
+// 				printf("Valor de n : %d\n",n);
+				//v_media = d/cronometro;
+				if(n == 5){
+					v_media = (d/cronometro)*3600;
+					printf("Velocidade Media : %.1f\n",v_media);
+					lv_label_set_text_fmt(labelVelocidadeMedia, "%.1f", v_media);
+					n = 0;
+					v_media = 0;
+				}
+			}
+			
+			if (vm > vm_){
+				lv_obj_set_style_text_color(labelVelocidade, lv_color_make(0x00, 0xff, 0x00), LV_STATE_DEFAULT);
+			}
+			// Desacelerou
+			else if (vm < vm_){
+				lv_obj_set_style_text_color(labelVelocidade, lv_color_make(0xff, 0x00, 0x00), LV_STATE_DEFAULT);
+			}
+			
+			printf("vm = %d km/h\n", (int) vm);
 			printf("am = %d cm/s^2\n", (int) am);
 			
 			RTT_init(10, 25, RTT_MR_ALMIEN);  // inicializa rtt com alarme
@@ -599,22 +692,37 @@ static void task_pulses(void *pvParameters) {
 			N = 0;
 			vm_ = vm;
 			choice = (choice + 1) % 3;
+			
+		}
+		if(xSemaphoreTake(xSemaphoreAlerta, 1)){
+			printf("Cam! \n");
+			for (int i = 0; i < 3; i++)
+			{
+				pio_clear(LED_PIO, LED_IDX_MASK);
+				vTaskDelay(10);
+				pio_set(LED_PIO, LED_IDX_MASK);
+			}
+			
 		}
 		
 		if(xSemaphoreTake(xSemaphorePulse, 1)){
 			//printf("Pulso! \n");
 			N++;
 		}
-		if(xSemaphoreTake(xSemaphoreAlerta, 1)){
-			printf("Cam! \n");
-			//N++;
-		}
-		
-		
-		
+				
 	}
 }
 
+
+
+
+
+void pin_toggle(Pio *pio, uint32_t mask) {
+	if (pio_get_output_data_status(pio, mask))
+	pio_clear(pio, mask);
+	else
+	pio_set(pio, mask);
+}
 static void task_rtc(void *pvParameters){
 	calendar rtc_initial = {2023, 4, 19, 12, 15, 0 ,0};
 
@@ -634,7 +742,8 @@ static void task_rtc(void *pvParameters){
 			rtc_get_time(RTC, &current_hour, &current_min, &current_sec);
 			lv_label_set_text_fmt(labelClock, "%02d:%02d:%02d", current_hour, current_min,current_sec);
 			
-			if(play){
+			if(deltaT_cron){
+				cronometro++;
 				if(segundo < 60){
 					segundo++;
 					lv_label_set_text_fmt(labelTempoGasto, "%02d:%02d", minuto,segundo);
@@ -645,14 +754,20 @@ static void task_rtc(void *pvParameters){
 					minuto++;
 					lv_label_set_text_fmt(labelTempoGasto, "%02d:%02d", minuto,segundo);
 				}
+			
 
 			}
 			if (refresh)
 			{
 				segundo = 0;
 				minuto = 0;
-				refresh =0;
+				
+				d = 0;
+				float v_media = 0;
 				lv_label_set_text_fmt(labelTempoGasto, "%02d:%02d", minuto,segundo);
+				lv_label_set_text_fmt(labelVelocidadeMedia, "%.1f", v_media);
+				lv_label_set_text_fmt(labelDistancia, "%.2f", d);
+				refresh =0;
 			}
 		}
 	}
@@ -661,6 +776,11 @@ static void task_rtc(void *pvParameters){
 /************************************************************************/
 /* configs                                                              */
 /************************************************************************/
+
+void LED_init(int estado){
+	pmc_enable_periph_clk(LED_PIO_ID);
+	pio_set_output(LED_PIO, LED_IDX_MASK, estado, 0, 0);
+};
 
 static void configure_lcd(void) {
 	/**LCD pin configure on SPI*/
@@ -857,6 +977,7 @@ int main(void) {
 	}
 	
 	
+	LED_init(1);
 	
 	/* Attempt to create a semaphore. */
 	xSemaphoreClock = xSemaphoreCreateBinary();
@@ -865,6 +986,8 @@ int main(void) {
 	
 	/* Attempt to create a semaphore. */
 	xSemaphorePulse = xSemaphoreCreateBinary();
+	xSemaphoreMutex = xSemaphoreCreateMutex();
+
 	if (xSemaphorePulse == NULL)
 	printf("falha em criar o semaforo \n");
 	

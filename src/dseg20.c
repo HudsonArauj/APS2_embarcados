@@ -4,6 +4,7 @@
  * Opts: 
  ******************************************************************************/
 #define LV_LVGL_H_INCLUDE_SIMPLE
+
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
 #include "lvgl.h"
 #else

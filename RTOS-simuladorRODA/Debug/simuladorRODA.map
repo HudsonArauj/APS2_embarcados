@@ -924,7 +924,7 @@ Discarded input sections
  .debug_macro   0x00000000       0x3a src/ASF/common/services/serial/usart_serial.o
  .debug_macro   0x00000000       0x28 src/ASF/common/services/serial/usart_serial.o
  .debug_line    0x00000000      0xc34 src/ASF/common/services/serial/usart_serial.o
- .debug_str     0x00000000    0x8666f src/ASF/common/services/serial/usart_serial.o
+ .debug_str     0x00000000    0x86672 src/ASF/common/services/serial/usart_serial.o
  .comment       0x00000000       0x5a src/ASF/common/services/serial/usart_serial.o
  .debug_frame   0x00000000       0x80 src/ASF/common/services/serial/usart_serial.o
  .ARM.attributes
@@ -5383,7 +5383,7 @@ Discarded input sections
  .debug_macro   0x00000000       0x9a src/ASF/thirdparty/freertos/freertos-8.2.3/Source/croutine.o
  .debug_macro   0x00000000       0x43 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/croutine.o
  .debug_line    0x00000000      0xb6b src/ASF/thirdparty/freertos/freertos-8.2.3/Source/croutine.o
- .debug_str     0x00000000    0x8937b src/ASF/thirdparty/freertos/freertos-8.2.3/Source/croutine.o
+ .debug_str     0x00000000    0x8937e src/ASF/thirdparty/freertos/freertos-8.2.3/Source/croutine.o
  .comment       0x00000000       0x5a src/ASF/thirdparty/freertos/freertos-8.2.3/Source/croutine.o
  .ARM.attributes
                 0x00000000       0x37 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/croutine.o
@@ -5724,7 +5724,7 @@ Discarded input sections
  .debug_macro   0x00000000       0x9a src/ASF/thirdparty/freertos/freertos-8.2.3/Source/event_groups.o
  .debug_macro   0x00000000       0x91 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/event_groups.o
  .debug_line    0x00000000      0xd6c src/ASF/thirdparty/freertos/freertos-8.2.3/Source/event_groups.o
- .debug_str     0x00000000    0x89bc3 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/event_groups.o
+ .debug_str     0x00000000    0x89bc6 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/event_groups.o
  .comment       0x00000000       0x5a src/ASF/thirdparty/freertos/freertos-8.2.3/Source/event_groups.o
  .debug_frame   0x00000000      0x174 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/event_groups.o
  .ARM.attributes
@@ -9832,49 +9832,49 @@ OUTPUT(simuladorRODA.elf elf32-littlearm)
  .debug_line    0x0000e6ed      0xdaf src/ASF/thirdparty/freertos/freertos-8.2.3/Source/timers.o
  .debug_line    0x0000f49c     0x1167 src/main.o
 
-.debug_str      0x00000000    0x9449c
- .debug_str     0x00000000    0x85ee2 src/ASF/common/services/clock/same70/sysclk.o
-                              0x865af (size before relaxing)
- .debug_str     0x00085ee2      0x1b5 src/ASF/common/services/delay/sam/cycle_counter.o
+.debug_str      0x00000000    0x944ec
+ .debug_str     0x00000000    0x85ee5 src/ASF/common/services/clock/same70/sysclk.o
+                              0x865b2 (size before relaxing)
+ .debug_str     0x00085ee5      0x202 src/ASF/common/services/delay/sam/cycle_counter.o
                               0x82091 (size before relaxing)
- .debug_str     0x00086097       0x94 src/ASF/common/utils/interrupt/interrupt_sam_nvic.o
+ .debug_str     0x000860e7       0x94 src/ASF/common/utils/interrupt/interrupt_sam_nvic.o
                               0x81f61 (size before relaxing)
- .debug_str     0x0008612b       0x3f src/ASF/common/utils/stdio/read.o
+ .debug_str     0x0008617b       0x3f src/ASF/common/utils/stdio/read.o
                               0x81f0a (size before relaxing)
- .debug_str     0x0008616a       0x2e src/ASF/common/utils/stdio/write.o
+ .debug_str     0x000861ba       0x2e src/ASF/common/utils/stdio/write.o
                               0x81f0b (size before relaxing)
- .debug_str     0x00086198      0xfd5 src/ASF/sam/boards/same70_xplained/init.o
-                              0x871ad (size before relaxing)
- .debug_str     0x0008716d      0x5b8 src/ASF/sam/drivers/pio/pio.o
+ .debug_str     0x000861e8      0xfd5 src/ASF/sam/boards/same70_xplained/init.o
+                              0x871b0 (size before relaxing)
+ .debug_str     0x000871bd      0x5b8 src/ASF/sam/drivers/pio/pio.o
                               0x82ab7 (size before relaxing)
- .debug_str     0x00087725      0x44f src/ASF/sam/drivers/pio/pio_handler.o
+ .debug_str     0x00087775      0x44f src/ASF/sam/drivers/pio/pio_handler.o
                               0x82bd9 (size before relaxing)
- .debug_str     0x00087b74      0x6b5 src/ASF/sam/drivers/pmc/pmc.o
+ .debug_str     0x00087bc4      0x6b5 src/ASF/sam/drivers/pmc/pmc.o
                               0x82c1b (size before relaxing)
- .debug_str     0x00088229      0x301 src/ASF/sam/drivers/uart/uart.o
+ .debug_str     0x00088279      0x301 src/ASF/sam/drivers/uart/uart.o
                               0x82211 (size before relaxing)
- .debug_str     0x0008852a      0xb6a src/ASF/sam/drivers/usart/usart.o
+ .debug_str     0x0008857a      0xb6a src/ASF/sam/drivers/usart/usart.o
                               0x82aa9 (size before relaxing)
- .debug_str     0x00089094      0x6a3 src/ASF/sam/utils/cmsis/same70/source/templates/gcc/startup_same70.o
+ .debug_str     0x000890e4      0x6a3 src/ASF/sam/utils/cmsis/same70/source/templates/gcc/startup_same70.o
                               0x8272e (size before relaxing)
- .debug_str     0x00089737      0x137 src/ASF/sam/utils/cmsis/same70/source/templates/system_same70.o
+ .debug_str     0x00089787      0x137 src/ASF/sam/utils/cmsis/same70/source/templates/system_same70.o
                               0x7283a (size before relaxing)
- .debug_str     0x0008986e      0x774 src/ASF/sam/utils/syscalls/gcc/syscalls.o
+ .debug_str     0x000898be      0x774 src/ASF/sam/utils/syscalls/gcc/syscalls.o
                                0x746b (size before relaxing)
- .debug_str     0x00089fe2     0x3120 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/list.o
-                              0x88773 (size before relaxing)
- .debug_str     0x0008d102      0xf47 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/portable/GCC/ARM_CM7/r0p1/port.o
-                              0x895b3 (size before relaxing)
- .debug_str     0x0008e049      0x120 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/portable/MemMang/heap_3.o
-                              0x88e89 (size before relaxing)
- .debug_str     0x0008e169     0x1323 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/queue.o
-                              0x8a336 (size before relaxing)
- .debug_str     0x0008f48c     0x19f3 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/tasks.o
-                              0x8ac78 (size before relaxing)
- .debug_str     0x00090e7f      0x483 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/timers.o
-                              0x8a6ff (size before relaxing)
- .debug_str     0x00091302     0x319a src/main.o
-                              0x8f3df (size before relaxing)
+ .debug_str     0x0008a032     0x3120 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/list.o
+                              0x88776 (size before relaxing)
+ .debug_str     0x0008d152      0xf47 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/portable/GCC/ARM_CM7/r0p1/port.o
+                              0x895b6 (size before relaxing)
+ .debug_str     0x0008e099      0x120 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/portable/MemMang/heap_3.o
+                              0x88e8c (size before relaxing)
+ .debug_str     0x0008e1b9     0x1323 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/queue.o
+                              0x8a339 (size before relaxing)
+ .debug_str     0x0008f4dc     0x19f3 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/tasks.o
+                              0x8ac7b (size before relaxing)
+ .debug_str     0x00090ecf      0x483 src/ASF/thirdparty/freertos/freertos-8.2.3/Source/timers.o
+                              0x8a702 (size before relaxing)
+ .debug_str     0x00091352     0x319a src/main.o
+                              0x8f3e2 (size before relaxing)
 
 .debug_frame    0x00000000     0x2f98
  .debug_frame   0x00000000       0x88 src/ASF/common/services/clock/same70/sysclk.o
